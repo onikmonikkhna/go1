@@ -1,0 +1,56 @@
+<?php
+session_start();
+
+// 🛡️ Blacklist checker
+function isBlacklisted($url) {
+  $blacklistFile = __DIR__ . '/blacklist.txt';
+  if (!file_exists($blacklistFile)) return false;
+
+  $rules = file($blacklistFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+  foreach ($rules as $rule) {
+    if (stripos($url, trim($rule)) !== false) return true;
+  }
+  return false;
+}
+
+// 📩 Receive POST data
+$data = json_decode(file_get_contents("php://input"), true);
+$url = trim($data['longUrl'] ?? '');
+$owner = $_SESSION['user'] ?? 'guest';
+
+// ✅ Validate
+if (!$url || !filter_var($url, FILTER_VALIDATE_URL)) {
+  echo json_encode(["error" => "❌ Enter the correct URL"]);
+  exit;
+}
+
+// 🔒 Check blacklist
+if (isBlacklisted($url)) {
+  echo json_encode(["error" => "❌  This URL has been blocked."]);
+  exit;
+}
+
+// 📁 Load data
+$urlsFile = __DIR__ . '/urls.json';
+$urls = file_exists($urlsFile) ? json_decode(file_get_contents($urlsFile), true) : [];
+
+// 🔗 Generate short code
+do {
+  $code = substr(md5($url . rand()), 0, 6);
+} while (isset($urls[$code]));
+
+// ⏱ Timestamp & save
+$urls[$code] = [
+  "url"     => $url,
+  "owner"   => $owner,
+  "clicks"  => 0,
+  "created" => time()
+];
+
+file_put_contents($urlsFile, json_encode($urls, JSON_PRETTY_PRINT));
+
+// 🌐 Return short URL
+$domain = $_SERVER['HTTP_HOST'];
+$shortUrl = "https://$domain/$code";
+
+echo json_encode(["shortUrl" => $shortUrl]);
