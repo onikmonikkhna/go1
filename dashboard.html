@@ -1,7 +1,7 @@
 <?php
 session_start();
 if (!isset($_SESSION['user'])) { 
-    header("Location: login.php"); 
+    header("Location: login.html"); 
     exit; 
 }
 $user = $_SESSION['user'];
@@ -482,7 +482,7 @@ foreach ($stats as $s) {
         <?php endif; ?>
     </div>
 
-    <a href="logout.php" class="logout-link">Logout</a>
+    <a href="logout.html" class="logout-link">Logout</a>
 </div>
 
 <script>
@@ -522,7 +522,7 @@ async function dashShorten() {
     if (!longUrl) return alert("Please enter a URL");
     
     try {
-        const res = await fetch("api/shorten.php", {
+        const res = await fetch("api/shorten.html", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ longUrl })
