@@ -14,7 +14,7 @@ function isBlacklisted($url) {
 }
 
 // 📩 Receive POST data
-$data = json_decode(file_get_contents("php://input"), true);
+$data = json_decode(file_get_contents("html://input"), true);
 $url = trim($data['longUrl'] ?? '');
 $owner = $_SESSION['user'] ?? 'guest';
 
