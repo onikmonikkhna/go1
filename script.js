@@ -6,7 +6,7 @@ async function shorten() {
   }
 
   try {
-    const res = await fetch("api/shorten.php", {
+    const res = await fetch("api/shorten.html", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ longUrl })
