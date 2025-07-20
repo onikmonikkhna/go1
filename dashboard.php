@@ -1,0 +1,556 @@
+<?php
+session_start();
+if (!isset($_SESSION['user'])) { 
+    header("Location: login.php"); 
+    exit; 
+}
+$user = $_SESSION['user'];
+$domain = $_SERVER['HTTP_HOST'];
+$urls = json_decode(file_get_contents('api/urls.json'), true);
+$stats = json_decode(file_get_contents('stats.json'), true);
+$userLinks = array_filter($urls, fn($u) => $u['owner'] === $user);
+
+// Date setup
+$allTimeClicks = array_sum(array_map(fn($u) => $u['clicks'], $userLinks));
+
+// Initialize stats arrays
+$map = [];
+$linkStats = [];
+
+foreach ($stats as $s) {
+    if (($urls[$s['code']]['owner'] ?? '') === $user) {
+        // Country stats
+        $c = $s['country'] ?? 'Unknown';
+        $map[$c] = ($map[$c] ?? 0) + 1;
+        
+        // Per-link stats
+        if (!isset($linkStats[$s['code']])) {
+            $linkStats[$s['code']] = [
+                'all' => 0,
+                'countries' => []
+            ];
+        }
+        $linkStats[$s['code']]['all']++;
+        $linkStats[$s['code']]['countries'][$c] = ($linkStats[$s['code']]['countries'][$c] ?? 0) + 1;
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Shortener Dashboard</title>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --primary-hover: #3a56d4;
+            --success: #28a745;
+            --success-hover: #218838;
+            --danger: #dc3545;
+            --danger-hover: #c82333;
+            --text: #2b2d42;
+            --light-gray: #f8f9fa;
+            --border-radius: 8px;
+            --box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            --card-padding: 16px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Roboto', -apple-system, sans-serif;
+            background: var(--light-gray);
+            color: var(--text);
+            line-height: 1.5;
+            padding: 16px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .logo {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 10px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .container {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: var(--card-padding);
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            margin-bottom: 12px;
+            color: var(--primary);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .stats-card {
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 12px;
+            box-shadow: var(--box-shadow);
+        }
+
+        .stats-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--primary);
+            font-size: 0.9rem;
+        }
+
+        .stats-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .stats-sub {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .menu-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .menu-tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tab-btn {
+            flex: 1 0 auto;
+            padding: 10px 12px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover, .tab-btn.active {
+            background: var(--primary-hover);
+        }
+
+        .tab-section {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-section.active {
+            display: block;
+        }
+
+        .input-group {
+            margin-bottom: 12px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            margin-bottom: 8px;
+        }
+
+        .btn {
+            padding: 12px 16px;
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            font-weight: 500;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--success);
+        }
+
+        .btn-primary:hover {
+            background: var(--success-hover);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+        }
+
+        .btn-danger:hover {
+            background: var(--danger-hover);
+        }
+
+        .btn-small {
+            padding: 8px 12px;
+            font-size: 0.9rem;
+        }
+
+        .result-box {
+            margin-top: 12px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: var(--border-radius);
+            display: none;
+        }
+
+        .link-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+            font-size: 0.9rem;
+        }
+
+        .link-table th {
+            text-align: left;
+            padding: 10px;
+            background: #f1f3f5;
+            font-weight: 500;
+        }
+
+        .link-table td {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .short-url {
+            font-family: monospace;
+            word-break: break-all;
+        }
+
+        .status-row {
+            background: #f9fbff;
+        }
+
+        .toggle-btn {
+            background: none;
+            color: var(--primary);
+            border: none;
+            text-decoration: underline;
+            cursor: pointer;
+            padding: 0;
+            font-size: inherit;
+        }
+
+        .logout-link {
+            display: inline-block;
+            margin-top: 16px;
+            color: #666;
+            text-decoration: none;
+        }
+
+        .click-stats {
+            display: flex;
+            gap: 8px;
+            margin-top: 4px;
+            font-size: 0.8rem;
+        }
+
+        .click-stat {
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: #f1f3f5;
+        }
+
+        /* Mobile specific styles */
+        @media (max-width: 600px) {
+            .container {
+                padding: 12px;
+            }
+
+            .logo {
+                font-size: 1.8rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .menu-tabs {
+                gap: 6px;
+            }
+
+            .tab-btn {
+                padding: 8px 10px;
+                font-size: 0.9rem;
+            }
+
+            .link-table, .link-table thead, .link-table tbody, 
+            .link-table th, .link-table td, .link-table tr {
+                display: block;
+            }
+
+            .link-table thead {
+                display: none;
+            }
+
+            .link-table tr {
+                margin-bottom: 12px;
+                border: 1px solid #ddd;
+                border-radius: var(--border-radius);
+                padding: 8px;
+            }
+
+            .link-table td {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 6px 0;
+                border-bottom: none;
+            }
+
+            .link-table td::before {
+                content: attr(data-label);
+                font-weight: 500;
+                margin-right: 12px;
+                color: #666;
+            }
+
+            .link-table td:last-child {
+                padding-bottom: 0;
+            }
+
+            .link-table .status-row td {
+                display: block;
+                padding: 8px 0;
+            }
+
+            .link-table .status-row td::before {
+                display: none;
+            }
+
+            .click-stats {
+                flex-direction: column;
+                gap: 4px;
+            }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <a href="/" class="logo">urlshortner.online</a>
+</div>
+
+<div class="container">
+    <h2>Welcome, <?= htmlspecialchars($user) ?></h2>
+
+    <div class="stats-grid">
+        <div class="stats-card">
+            <div class="stats-title">TOTAL LINKS</div>
+            <div class="stats-value"><?= count($userLinks) ?></div>
+        </div>
+        
+        <div class="stats-card">
+            <div class="stats-title">ALL-TIME CLICKS</div>
+            <div class="stats-value"><?= $allTimeClicks ?></div>
+        </div>
+        
+        <div class="stats-card">
+            <button class="toggle-btn" onclick="toggleCountry()">Show Country Stats</button>
+            <div id="countryBox" style="display:none; margin-top:8px;">
+                <?php foreach ($map as $country => $count): ?>
+                    <div><?= htmlspecialchars($country) ?>: <?= $count ?></div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="menu-tabs">
+        <button class="tab-btn active" onclick="showTab('shorten')">Shorten</button>
+        <button class="tab-btn" onclick="showTab('allLinks')">My Links</button>
+        <button class="tab-btn" onclick="showTab('countryStats')">Countries</button>
+    </div>
+
+    <!-- Shorten Section -->
+    <div id="tab-shorten" class="tab-section active">
+        <div class="input-group">
+            <input type="text" id="dashLongUrl" placeholder="Enter long URL...">
+            <button class="btn btn-primary" onclick="dashShorten()">Shorten URL</button>
+        </div>
+        <div id="dashResult" class="result-box">
+            <input type="text" id="dashShortUrl" readonly>
+            <button class="btn btn-primary btn-small" onclick="dashCopy()">Copy</button>
+            <p id="dashMsg" style="margin-top:8px;"></p>
+        </div>
+    </div>
+
+    <!-- All Links Section -->
+    <div id="tab-allLinks" class="tab-section">
+        <?php if (empty($userLinks)): ?>
+            <p>You haven't created any links yet.</p>
+        <?php else: ?>
+            <table class="link-table">
+                <thead>
+                    <tr>
+                        <th>Short URL</th>
+                        <th>Target</th>
+                        <th>Clicks</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($userLinks as $code => $link): ?>
+                        <tr>
+                            <td data-label="Short URL" class="short-url">
+                                <a href="https://<?= $domain ?>/<?= $code ?>" target="_blank">
+                                    https://<?= $domain ?>/<?= $code ?>
+                                </a>
+                            </td>
+                            <td data-label="Target" title="<?= htmlspecialchars($link['url']) ?>">
+                                <?= parse_url($link['url'], PHP_URL_HOST) ?>/...
+                            </td>
+                            <td data-label="Clicks">
+                                <div><?= $link['clicks'] ?></div>
+                            </td>
+                            <td data-label="Details">
+                                <button class="btn btn-primary btn-small" onclick="toggleStats('<?= $code ?>')">View</button>
+                            </td>
+                        </tr>
+                        <tr id="stats-<?= $code ?>" class="status-row" style="display:none;">
+                            <td colspan="4">
+                                <strong>Country Breakdown:</strong><br>
+                                <?php if (!empty($linkStats[$code]['countries'])): ?>
+                                    <?php foreach ($linkStats[$code]['countries'] as $country => $count): ?>
+                                        <?= htmlspecialchars($country) ?>: <?= $count ?><br>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    No clicks yet.
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php endif; ?>
+    </div>
+
+    <!-- Country Stats Section -->
+    <div id="tab-countryStats" class="tab-section">
+        <?php if (empty($map)): ?>
+            <p>No country stats available yet.</p>
+        <?php else: ?>
+            <table class="link-table">
+                <thead>
+                    <tr>
+                        <th>Country</th>
+                        <th>Total Clicks</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($map as $country => $count): ?>
+                        <tr>
+                            <td data-label="Country"><?= htmlspecialchars($country) ?></td>
+                            <td data-label="Total Clicks"><?= $count ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php endif; ?>
+    </div>
+
+    <a href="logout.php" class="logout-link">Logout</a>
+</div>
+
+<script>
+function showTab(tabId) {
+    // Update active tab button
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelector(`.tab-btn[onclick="showTab('${tabId}')"]`).classList.add('active');
+    
+    // Update active tab content
+    document.querySelectorAll('.tab-section').forEach(div => {
+        div.classList.remove('active');
+    });
+    document.getElementById('tab-' + tabId).classList.add('active');
+}
+
+function toggleCountry() {
+    const box = document.getElementById("countryBox");
+    const btn = document.querySelector(".toggle-btn");
+    if (box.style.display === "none") {
+        box.style.display = "block";
+        btn.textContent = "Hide Country Stats";
+    } else {
+        box.style.display = "none";
+        btn.textContent = "Show Country Stats";
+    }
+}
+
+function toggleStats(code) {
+    const row = document.getElementById("stats-" + code);
+    row.style.display = (row.style.display === "none") ? "table-row" : "none";
+}
+
+async function dashShorten() {
+    const longUrl = document.getElementById("dashLongUrl").value.trim();
+    if (!longUrl) return alert("Please enter a URL");
+    
+    try {
+        const res = await fetch("api/shorten.php", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ longUrl })
+        });
+        const data = await res.json();
+        
+        if (data.shortUrl) {
+            document.getElementById("dashShortUrl").value = data.shortUrl;
+            document.getElementById("dashResult").style.display = "block";
+            document.getElementById("dashMsg").textContent = "Short URL created successfully! Click the Copy button below.";
+            // Removed the auto-refresh here
+        } else {
+            document.getElementById("dashMsg").textContent = "Error: " + (data.error || "Unknown error");
+        }
+    } catch (error) {
+        document.getElementById("dashMsg").textContent = "Error: " + error.message;
+    }
+}
+
+function dashCopy() {
+    const input = document.getElementById("dashShortUrl");
+    input.select();
+    document.execCommand("copy");
+    
+    const msg = document.getElementById("dashMsg");
+    msg.textContent = "Copied to clipboard! ✅";
+    // Removed the auto-hide timeout here
+}
+</script>
+</body>
+</html>

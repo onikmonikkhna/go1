@@ -1,0 +1,199 @@
+<?php
+session_start();
+$error = null;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+  $email = trim($_POST['email'] ?? '');
+  $pass  = $_POST['password'] ?? '';
+  $usersFile = 'users.json';
+
+  $users = file_exists($usersFile) ? json_decode(file_get_contents($usersFile), true) : [];
+
+  if (isset($users[$email]) && password_verify($pass, $users[$email])) {
+    $_SESSION['user'] = $email;
+    header("Location: dashboard.php");
+    exit;
+  } else {
+    $error = "Invalid email or password";
+  }
+}
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Secure Login</title>
+  <style>
+    :root {
+      --primary: #4361ee;
+      --primary-dark: #3a0ca3;
+      --success: #4cc9f0;
+      --error: #f72585;
+      --light: #f8f9fa;
+      --dark: #212529;
+      --gray: #6c757d;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
+    body {
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 450px;
+      padding: 40px;
+      text-align: center;
+      animation: fadeIn 0.5s ease-out;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    h2 {
+      color: var(--primary-dark);
+      margin-bottom: 25px;
+      font-size: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    
+    input {
+      padding: 15px;
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+      font-size: 16px;
+      transition: all 0.3s;
+    }
+    
+    input:focus {
+      border-color: var(--primary);
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+    }
+    
+    button {
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      padding: 15px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    button:hover {
+      background-color: var(--primary-dark);
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(67, 97, 238, 0.3);
+    }
+    
+    .register-link {
+      display: block;
+      margin-top: 25px;
+      color: var(--gray);
+      text-decoration: none;
+      transition: color 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+    
+    .register-link:hover {
+      color: var(--primary);
+    }
+    
+    .error-message {
+      margin-top: 20px;
+      padding: 12px;
+      border-radius: 8px;
+      font-weight: 500;
+      background-color: rgba(247, 37, 133, 0.1);
+      color: var(--error);
+      border: 1px solid rgba(247, 37, 133, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    
+    .lock-icon {
+      font-size: 24px;
+    }
+    
+    .input-group {
+      position: relative;
+    }
+    
+    .input-group i {
+      position: absolute;
+      left: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--gray);
+    }
+    
+    .input-group input {
+      padding-left: 45px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2><span class="lock-icon">🔐</span> Account Login</h2>
+    
+    <form method="post">
+      <div class="input-group">
+        <i>✉️</i>
+        <input type="email" name="email" placeholder="Enter your email" required>
+      </div>
+      
+      <div class="input-group">
+        <i>🔒</i>
+        <input type="password" name="password" placeholder="Enter your password" required>
+      </div>
+      
+      <button type="submit">Sign In</button>
+    </form>
+    
+    <a href="register.php" class="register-link">
+      <span>🆕</span> Create New Account
+    </a>
+    
+    <?php if ($error): ?>
+      <div class="error-message">
+        <span>❌</span> <?= htmlspecialchars($error) ?>
+      </div>
+    <?php endif; ?>
+  </div>
+</body>
+</html>

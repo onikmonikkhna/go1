@@ -1,0 +1,191 @@
+<?php
+session_start();
+$success = false;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+  $email = trim($_POST['email']);
+  $pass  = $_POST['password'];
+
+  if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    $error = "Invalid email address";
+  } else {
+    $file  = 'users.json';
+    $users = file_exists($file) ? json_decode(file_get_contents($file), true) : [];
+
+    if (isset($users[$email])) {
+      $error = "User already exists";
+    } else {
+      $users[$email] = password_hash($pass, PASSWORD_DEFAULT);
+      file_put_contents($file, json_encode($users, JSON_PRETTY_PRINT));
+      $success = true;
+
+      // ✅ Redirect after 2 seconds
+      header("refresh:2;url=login.php");
+    }
+  }
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register New Account</title>
+  <style>
+    :root {
+      --primary: #4361ee;
+      --primary-dark: #3a0ca3;
+      --success: #4cc9f0;
+      --error: #f72585;
+      --light: #f8f9fa;
+      --dark: #212529;
+      --gray: #6c757d;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 450px;
+      padding: 40px;
+      text-align: center;
+      animation: fadeIn 0.5s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    h2 {
+      color: var(--primary-dark);
+      margin-bottom: 25px;
+      font-size: 28px;
+    }
+
+    .success-message {
+      color: var(--success);
+      margin-bottom: 20px;
+      font-size: 18px;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    input {
+      padding: 15px;
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+      font-size: 16px;
+      transition: all 0.3s;
+    }
+
+    input:focus {
+      border-color: var(--primary);
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+    }
+
+    button {
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      padding: 15px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    button:hover {
+      background-color: var(--primary-dark);
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(67, 97, 238, 0.3);
+    }
+
+    .login-link {
+      display: block;
+      margin-top: 25px;
+      color: var(--gray);
+      text-decoration: none;
+      transition: color 0.3s;
+    }
+
+    .login-link:hover {
+      color: var(--primary);
+    }
+
+    .message {
+      margin-top: 20px;
+      padding: 12px;
+      border-radius: 8px;
+      font-weight: 500;
+    }
+
+    .error {
+      background-color: rgba(247, 37, 133, 0.1);
+      color: var(--error);
+      border: 1px solid rgba(247, 37, 133, 0.2);
+    }
+
+    .success-icon {
+      font-size: 60px;
+      margin-bottom: 20px;
+      color: var(--success);
+      animation: bounce 1s;
+    }
+
+    @keyframes bounce {
+      0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
+      40% {transform: translateY(-20px);}
+      60% {transform: translateY(-10px);}
+    }
+
+    .redirect-message {
+      color: var(--gray);
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <?php if ($success): ?>
+      <div class="success-icon">✓</div>
+      <h2>Registration Successful!</h2>
+      <p class="redirect-message">You will be redirected to the login page in 2 seconds...</p>
+    <?php else: ?>
+      <h2>Create Your Account</h2>
+      <form method="post">
+        <input type="email" name="email" placeholder="Enter your email" required>
+        <input type="password" name="password" placeholder="Create a password" required>
+        <button type="submit">Sign Up</button>
+      </form>
+      <a href="login.php" class="login-link">Already have an account? Log in</a>
+      <?php if (isset($error)): ?>
+        <div class="message error"><?php echo $error; ?></div>
+      <?php endif; ?>
+    <?php endif; ?>
+  </div>
+</body>
+</html>
