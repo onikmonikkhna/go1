@@ -6,12 +6,12 @@ Options -Indexes
 </FilesMatch>
 
 RewriteEngine On
-RewriteRule ^$ index.php [L]
+RewriteRule ^$ index.html [L]
 
 
 RewriteEngine On
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^([a-zA-Z0-9]{6})$ redirect.php?code=$1 [QSA,L]
+RewriteRule ^([a-zA-Z0-9]{6})$ redirect.html?code=$1 [QSA,L]
 
 
